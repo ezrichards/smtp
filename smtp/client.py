@@ -7,10 +7,23 @@ if __name__ == "__main__":
     server_address = ('localhost', 2525)
     client_socket.connect(server_address)
 
-    message = "lol client 😂😂\n"
-    client_socket.sendall(message.encode('utf-8'))
+    response = client_socket.recv(1024).decode('utf-8')
+    if response.split()[0] == "220":
+        print(response)
+    else:
+        print("BAD RESPONSE!")
 
-    response = client_socket.recv(1024)
-    print(f"Received: {response.decode('utf-8')}")
+    message = input()
+    while message != "QUIT":
+        client_socket.sendall(message.encode('utf-8'))
+
+        response = client_socket.recv(1024).decode('utf-8')
+        print(response)
+
+        message = input()
+
+    client_socket.sendall(message.encode('utf-8'))
+    response = client_socket.recv(1024).decode('utf-8')
+    print(response)
 
     client_socket.close()
