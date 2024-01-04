@@ -1,17 +1,41 @@
-# SMTP Server
-
+import logging
+import colorlog
 import socket
 import signal
 import sys
 
 from codes import SYNTAX_ERROR_COMMAND, REQUESTED_MAIL_ACTION_OK, SERVICE_CLOSING
 from commands.EHLO import EHLO
+from commands.HELO import HELO
+
+# TODO better SIGINT handling
 
 server_address = (
     "localhost",
     2525,
 )  # would normally run on 25, but we would need to be a privileged user for that
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+logger = logging.getLogger()
+
+
+def setup_logger():
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(
+        colorlog.ColoredFormatter(
+            fmt="[%(asctime)s]%(log_color)s %(message)s",
+            log_colors={
+                "DEBUG": "cyan",
+                "INFO": "black",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red,bold",
+            },
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ),
+    )
+
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def signal_handler(sig, frame) -> None:
@@ -26,7 +50,7 @@ def start_server() -> None:
     server_socket.bind(server_address)
     server_socket.listen(1)
 
-    print(f"[log] SMTP Server listening on {server_address}..")
+    print(f"\nSMTP server listening on {server_address[0]}:{server_address[1]}..\n")
 
     while True:
         connection, client_address = server_socket.accept()
@@ -49,10 +73,22 @@ def handle_client(connection: socket.socket) -> None:
         f"[log] Received opening socket from client @ {connection.getsockname()}: {data}"
     )
 
-    if data.split()[0] == "EHLO":
+    if data.split()[0] in "EHLO":
         cmd = EHLO(data)
         valid = cmd.validate_command()
-        print(valid)
+    elif data.split()[0] == "HELO":
+        cmd = HELO(data)
+        valid = cmd.validate_command()
+    else:
+        valid = False
+        logger.warning("invalid EHLO/HELO opening command received")
+
+    print(valid)
+
+    if valid:
+        logger.info("valid opening received..")
+    else:
+        logger.warning("invalid EHLO/HELO format received")
 
     session_active = True
 
@@ -92,6 +128,7 @@ def handle_client(connection: socket.socket) -> None:
 
 
 if __name__ == "__main__":
+    setup_logger()
     start_server()
 
     signal.signal(signal.SIGINT, signal_handler)
