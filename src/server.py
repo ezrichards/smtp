@@ -64,31 +64,56 @@ def send_response(
     connection.sendall(message.encode("utf-8"))
 
 
-def handle_client(connection: socket.socket) -> None:
+def read_response(connection: socket.socket) -> str:
+    return connection.recv(1024).decode("utf-8")
+
+
+def handshake_client(connection: socket.socket) -> bool:
+    """
+    Establishes a connection with the given client socket; the
+    server will send a 220 greeting, and expects a EHLO or HELO in return.
+
+    If the server does not receive this greeting, it will send a 501 back
+    until a valid EHLO/HELO is sent or until 5 failed attempts are reached.
+    Returns whether or not the handshake was successful.
+    """
+
     # 220 greeting MUST come first
     send_response(connection, f"220 {server_address[0]} ESMTP Postfix")
 
-    data = connection.recv(1024).decode("utf-8")  # 1 KB buffer
-    print(
-        f"[log] Received opening socket from client @ {connection.getsockname()}: {data}"
-    )
+    attempts = 0
+    while attempts < 5:
+        # read buffer response - should be EHLO/HELO
+        data = read_response(connection)
 
-    if data.split()[0] in "EHLO":
-        cmd = EHLO(data)
+        if data.split()[0] in "EHLO":
+            cmd = EHLO(data)
+        elif data.split()[0] == "HELO":
+            cmd = HELO(data)
+        else:
+            send_response(connection, "501 Syntax error in parameters or arguments")
+
         valid = cmd.validate_command()
-    elif data.split()[0] == "HELO":
-        cmd = HELO(data)
-        valid = cmd.validate_command()
-    else:
-        valid = False
-        logger.warning("invalid EHLO/HELO opening command received")
+        if valid:
+            send_response(
+                connection, "250 Hello, I am glad to meet you"
+            )  # TODO include domain (get this from cmd obj?)
+            return True
+        else:
+            send_response(connection, "501 Syntax error in parameters or arguments")
 
-    print(valid)
+        attempts += 1
 
-    if valid:
-        logger.info("valid opening received..")
-    else:
-        logger.warning("invalid EHLO/HELO format received")
+    return False
+
+
+def handle_client(connection: socket.socket) -> None:
+    if not handshake_client(connection):
+        logger.info(f"Handshake failed for: {connection.getsockname()}")
+        connection.close()
+        return
+
+    # TODO handle activated session
 
     session_active = True
 
@@ -107,12 +132,6 @@ def handle_client(connection: socket.socket) -> None:
                     connection.sendall(f"{SERVICE_CLOSING[0]} Bye".encode("utf-8"))
                     session_active = False
                     break
-
-                # TODO validate EHLO parameters
-                domain = data.split()[1]
-
-                message = f"{REQUESTED_MAIL_ACTION_OK[0]} Hello {domain}, I am glad to meet you"
-                connection.sendall(message.encode("utf-8"))
             else:
                 message = f"{SYNTAX_ERROR_COMMAND[0]} {SYNTAX_ERROR_COMMAND[1]}"
                 connection.sendall(message.encode("utf-8"))
