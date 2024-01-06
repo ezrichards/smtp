@@ -8,8 +8,6 @@ from codes import SYNTAX_ERROR_COMMAND, REQUESTED_MAIL_ACTION_OK, SERVICE_CLOSIN
 from commands.EHLO import EHLO
 from commands.HELO import HELO
 
-# TODO better SIGINT handling
-
 server_address = (
     "localhost",
     2525,
@@ -92,6 +90,7 @@ def handshake_client(connection: socket.socket) -> bool:
             cmd = HELO(data)
         else:
             send_response(connection, "501 Syntax error in parameters or arguments")
+            continue
 
         valid = cmd.validate_command()
         if valid:
@@ -113,33 +112,49 @@ def handle_client(connection: socket.socket) -> None:
         connection.close()
         return
 
-    # TODO handle activated session
-
+    # Handshake completed, waiting for next client command
     session_active = True
+    data = read_response(connection)
 
     try:
         while session_active:
-            print(
-                f"[log] Received session socket from client @ {connection.getsockname()}: {data}"
-            )
+            if data.split()[0] == "QUIT":
+                logger.info(
+                    f"Quit received, terminating connection for {connection.getsockname()}.."
+                )
+                send_response(connection, f"{SERVICE_CLOSING[0]} Bye")
+                session_active = False
+                break
+            elif data.split()[0] == "DATA":
+                # TODO validate data command
 
-            if True:  # TODO per-command validation
-                # if validate_command(data):
-                print(f"[log] Valid command in data: {data}")
+                send_response(connection, "354 End data with <CR><LF>.<CR><LF>")
 
-                if data.split()[0] == "QUIT":
-                    print("[log] quit received, terminating connection..")
-                    connection.sendall(f"{SERVICE_CLOSING[0]} Bye".encode("utf-8"))
-                    session_active = False
-                    break
+                # store email contents line-by-line
+                email_contents = []
+
+                # while session for email data is active
+                data_session = True
+                while data_session:
+                    email_data = read_response(connection)
+
+                    logger.debug("received email data " + repr(email_data))
+
+                    if email_data == "\\r\\n.\\r\\n":  # must escape the char escapes :)
+                        logger.debug("Received quit signal for DATA call..")
+                        send_response(connection, "250 Ok")
+                        break
+                    email_contents.append(email_data)
+
+                print("contents after session:", email_contents)
             else:
-                message = f"{SYNTAX_ERROR_COMMAND[0]} {SYNTAX_ERROR_COMMAND[1]}"
-                connection.sendall(message.encode("utf-8"))
+                send_response(
+                    connection, f"{SYNTAX_ERROR_COMMAND[0]} {SYNTAX_ERROR_COMMAND[1]}"
+                )
 
-            data = connection.recv(1024).decode("utf-8")
+            data = read_response(connection)
     except KeyboardInterrupt:
-        print("CTRL-C received in interrupt. Shutting down...")
-        # Perform cleanup operations here
+        print("CTRL-C received in interrupt. Shutting down..")
         server_socket.close()
         sys.exit(0)
 
