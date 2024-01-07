@@ -1,10 +1,9 @@
-# SMTP Client
-
 import socket
+
+server_address = ("localhost", 2525)
 
 if __name__ == "__main__":
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = ("localhost", 2525)
     client_socket.connect(server_address)
 
     response = client_socket.recv(1024).decode("utf-8")

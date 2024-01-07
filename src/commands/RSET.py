@@ -1,6 +1,6 @@
 import re
 
-from Command import Command
+from .Command import Command
 
 
 class RSET(Command):
