@@ -1,17 +1,21 @@
+import os
 import socket
 import signal
 import sys
 
+from dotenv import load_dotenv
 from common.logger import setup_logger, logger
 from common.sockets import read_response, send_response
 from codes import SYNTAX_ERROR_COMMAND, REQUESTED_MAIL_ACTION_OK, SERVICE_CLOSING
 from commands.EHLO import EHLO
 from commands.HELO import HELO
 
-server_address = (
-    "localhost",
-    2525,
-)  # would normally run on 25, but we would need to be a privileged user for that
+load_dotenv()
+
+SERVER_ADDRESS = (
+    os.getenv("SERVER_ADDRESS", "localhost"),
+    int(os.getenv("SERVER_PORT", 2525)),
+)
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
@@ -24,10 +28,10 @@ def signal_handler(sig, frame) -> None:
 
 def start_server() -> None:
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(server_address)
+    server_socket.bind(SERVER_ADDRESS)
     server_socket.listen(1)
 
-    print(f"\nSMTP server listening on {server_address[0]}:{server_address[1]}..\n")
+    print(f"\nSMTP server listening on {SERVER_ADDRESS[0]}:{SERVER_ADDRESS[1]}..\n")
 
     while True:
         connection, client_address = server_socket.accept()
@@ -46,7 +50,7 @@ def handshake_client(connection: socket.socket) -> bool:
     """
 
     # 220 greeting MUST come first
-    send_response(connection, f"220 {server_address[0]} ESMTP Postfix")
+    send_response(connection, f"220 {SERVER_ADDRESS[0]} ESMTP Postfix")
 
     attempts = 0
     while attempts < 5:
@@ -115,7 +119,7 @@ def handle_client(connection: socket.socket) -> None:
                         break
                     email_contents.append(email_data)
 
-                logger.debug("contents after email data session:" + email_contents)
+                logger.debug("contents after email data session %s", email_contents)
             else:
                 send_response(
                     connection, f"{SYNTAX_ERROR_COMMAND[0]} {SYNTAX_ERROR_COMMAND[1]}"

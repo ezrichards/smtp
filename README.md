@@ -6,6 +6,8 @@ A (work in progress!) simple Python implementation of an SMTP server, leaning he
 
 Install the given requirements: `pip install -r requirements.txt`
 
+Rename `sample.env` to `.env`, and reconfigure as desired.
+
 Open two separate terminals. In both, navigate to the `src` directory.
 - In the first, launch the server: `python server.py`
 - In the second, launch the client: `python client.py`
