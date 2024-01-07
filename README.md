@@ -32,8 +32,6 @@ QUIT
 
 ## References
 
-[RFC 5321 (SMTP Draft Standard)](https://datatracker.ietf.org/doc/html/rfc5321)
-
-[RFC 9051 (IMAP Client Reference)](https://datatracker.ietf.org/doc/html/rfc9051)
-
-[SMTP Transport Example (Wikipedia)](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP_transport_example)
+* [RFC 5321 (SMTP Draft Standard)](https://datatracker.ietf.org/doc/html/rfc5321)
+* [RFC 9051 (IMAP Client Reference)](https://datatracker.ietf.org/doc/html/rfc9051)
+* [SMTP Transport Example (Wikipedia)](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP_transport_example)
