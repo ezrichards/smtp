@@ -1,6 +1,5 @@
 import os
 import socket
-import signal
 import sys
 
 from dotenv import load_dotenv
@@ -16,12 +15,15 @@ SERVER_ADDRESS = (
     os.getenv("SERVER_ADDRESS", "localhost"),
     int(os.getenv("SERVER_PORT", 2525)),
 )
+
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
-def signal_handler(sig, frame) -> None:
-    print("You pressed Ctrl+C!")
-    print(f"[log] Received SIGINT, killing server..")
+def shutdown() -> None:
+    """
+    Ends the server and cleans up server sockets beforehand.
+    """
+    logger.info(f"Received SIGINT, killing server..")
     server_socket.close()
     sys.exit(0)
 
@@ -33,10 +35,13 @@ def start_server() -> None:
 
     print(f"\nSMTP server listening on {SERVER_ADDRESS[0]}:{SERVER_ADDRESS[1]}..\n")
 
-    while True:
-        connection, client_address = server_socket.accept()
-        print(f"[log] Client connecting @ {client_address}")
-        handle_client(connection)
+    try:
+        while True:
+            connection, client_address = server_socket.accept()
+            print(f"[log] Client connecting @ {client_address}")
+            handle_client(connection)
+    except KeyboardInterrupt:
+        shutdown()
 
 
 def handshake_client(connection: socket.socket) -> bool:
@@ -81,6 +86,11 @@ def handshake_client(connection: socket.socket) -> bool:
 
 
 def handle_client(connection: socket.socket) -> None:
+    """
+    Handle client connections on the given socket. An attempt will
+    first be made to handshake the client; if the client and server cannot perform
+    the handshake, the connection will be closed and nothing more will happen.
+    """
     if not handshake_client(connection):
         logger.info(f"Handshake failed for: {connection.getsockname()}")
         connection.close()
@@ -127,9 +137,7 @@ def handle_client(connection: socket.socket) -> None:
 
             data = read_response(connection)
     except KeyboardInterrupt:
-        print("CTRL-C received in interrupt. Shutting down..")
-        server_socket.close()
-        sys.exit(0)
+        shutdown()
 
     connection.close()
 
@@ -137,7 +145,3 @@ def handle_client(connection: socket.socket) -> None:
 if __name__ == "__main__":
     setup_logger()
     start_server()
-
-    signal.signal(signal.SIGINT, signal_handler)
-    print("Press Ctrl+C to end session")
-    signal.pause()
