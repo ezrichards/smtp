@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from common.logger import setup_logger, logger
 from common.sockets import read_response, send_response
 from codes import SYNTAX_ERROR_COMMAND, REQUESTED_MAIL_ACTION_OK, SERVICE_CLOSING
+from commands.Command import Command
 from commands.EHLO import EHLO
 from commands.HELO import HELO
 
@@ -38,7 +39,7 @@ def start_server() -> None:
     try:
         while True:
             connection, client_address = server_socket.accept()
-            print(f"[log] Client connecting @ {client_address}")
+            logger.debug(f"Client connecting from: {client_address}..")
             handle_client(connection)
     except KeyboardInterrupt:
         shutdown()
@@ -70,15 +71,12 @@ def handshake_client(connection: socket.socket) -> bool:
             send_response(connection, "501 Syntax error in parameters or arguments")
             continue
 
-        valid = cmd.validate_command()
+        valid: Command = cmd.validate_command()
         if valid:
-            send_response(
-                connection, "250 Hello, I am glad to meet you"
-            )  # TODO include domain (get this from cmd obj?)
-            # TODO do validation inside of the command class and send a response there
+            cmd.send_valid_response(connection)
             return True
         else:
-            send_response(connection, "501 Syntax error in parameters or arguments")
+            cmd.send_invalid_response(connection)
 
         attempts += 1
 
