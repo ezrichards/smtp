@@ -83,6 +83,36 @@ def handshake_client(connection: socket.socket) -> bool:
     return False
 
 
+def handle_data_session(connection: socket.socket) -> list[str]:
+    """
+    Handles an email data transfer session on
+    the given socket connection. Returns all lines
+    entered by the user as a list of strings
+    """
+    # TODO validate data command
+
+    send_response(connection, "354 End data with <CR><LF>.<CR><LF>")
+
+    # store email contents line-by-line
+    email_contents = []
+    data_session = True
+
+    while data_session:
+        email_data = read_response(connection)
+
+        logger.debug("received email data " + repr(email_data))
+
+        if email_data == "\\r\\n.\\r\\n":
+            logger.debug("Received quit signal for DATA call..")
+            send_response(connection, "250 Ok")
+            break
+        email_contents.append(email_data)
+
+    logger.debug("contents after email data session %s", email_contents)
+
+    return email_contents
+
+
 def handle_client(connection: socket.socket) -> None:
     """
     Handle client connections on the given socket. An attempt will
@@ -108,26 +138,7 @@ def handle_client(connection: socket.socket) -> None:
                 session_active = False
                 break
             elif data.split()[0] == "DATA":
-                # TODO validate data command
-
-                send_response(connection, "354 End data with <CR><LF>.<CR><LF>")
-
-                # store email contents line-by-line
-                email_contents = []
-                data_session = True
-
-                while data_session:
-                    email_data = read_response(connection)
-
-                    logger.debug("received email data " + repr(email_data))
-
-                    if email_data == "\\r\\n.\\r\\n":
-                        logger.debug("Received quit signal for DATA call..")
-                        send_response(connection, "250 Ok")
-                        break
-                    email_contents.append(email_data)
-
-                logger.debug("contents after email data session %s", email_contents)
+                handle_data_session(connection)
             else:
                 send_response(
                     connection, f"{SYNTAX_ERROR_COMMAND[0]} {SYNTAX_ERROR_COMMAND[1]}"
